@@ -1,9 +1,11 @@
 <?php
 /**
  * Plugin Name: Moresell Connect
- * Plugin Uri: example.com/moresell-connect
+ * Plugin Uri: https://github.com/junaidzx90/moresell-connect
  * Author: Junayed
- * Author Uri: easeare.com
+ * Author Uri: https://www.fiverr.com/junaidzx90
+ * Description: This plugin is a part of the "Moresell" plugin.
+ * Version: 0.0.1
 */
 
 add_action("rest_api_init", "moresell_custom_api_for_inser_product");
