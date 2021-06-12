@@ -6,6 +6,8 @@
  * Author Uri: https://www.fiverr.com/junaidzx90
  * Description: This plugin is a part of the "Moresell" plugin.
  * Version: 0.0.1
+ * Text Domain:       moresell-connect
+ * Domain Path:       /languages
 */
 
 add_action("rest_api_init", "moresell_custom_api_for_inser_product");
