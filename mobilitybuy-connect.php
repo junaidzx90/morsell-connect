@@ -5,7 +5,7 @@
  * Author: Junayed
  * Author Uri: https://www.fiverr.com/junaidzx90
  * Description: This plugin is a part of the "MobilityBuy" plugin.
- * Version: 0.0.1
+ * Version: 1.0.2
  * Text Domain:       mobilitybuy-connect
  * Domain Path:       /languages
 */
@@ -30,6 +30,10 @@ $_woo = new Client(
     ]
 );
 
+register_activation_hook( __FILE__, 'activate_mobilitybuy_connect' );
+function activate_mobilitybuy_connect(){
+    flush_rewrite_rules(  );
+}
 // Menu page
 function mobilitybuy_connect_menupage(){
     add_submenu_page( 'options-general.php', 'MobilityBuy Connect', 'MobilityBuy Connect', 'manage_options', 'mobilitybuy-connect', 'mobilitybuy_connect_view');
@@ -203,86 +207,114 @@ function mobilitybuy_category_update($product_id,$cats){
 // API Callback
 function mobilitybuy_requests_for_product($data){
     global $wpdb;
-    $post_id = 0;
-    if($post_id = $wpdb->get_var("SELECT post_id FROM {$wpdb->prefix}postmeta WHERE meta_key = 'original_product_id' AND meta_value = {$data['original_pid']}") ){
-        wp_update_post(array(
-            'ID' => intval($post_id),
-            'post_title' => $data['name'],
-            'post_type' => 'product',
-            'post_status' => $data['status'],
-            'post_content' => $data['description'],
-            'post_excerpt' => $data['short_description'],
-        ));
+    $save_data = false;
 
-        $args = array(
-            'post_type'   => 'attachment',
-            'numberposts' => -1,
-            'post_status' => 'any',
-            'post_parent' => $post_id
-        );
-         
-        $attachments = get_posts( $args );
-         
-        if ( $attachments ) {
-            foreach ( $attachments as $attachment ) {
-                wp_delete_attachment( $attachment->ID);
+    if($data['categories']){
+        $cattos = [];
+        foreach($data['categories'] as $catto){
+            $cattos[] = $catto['name'];
+        }
+    }
+
+    $expectedcats = get_option('expected_categories','');
+
+    $definedcats = explode(',',$expectedcats);
+    
+    foreach($definedcats as $define){
+        if(in_array($define,$cattos)){
+            $save_data = true;
+        }else{
+            $save_data = false;
+        }
+    }
+    
+    if($save_data){
+        $post_id = 0;
+        if($post_id = $wpdb->get_var("SELECT post_id FROM {$wpdb->prefix}postmeta WHERE meta_key = 'original_product_id' AND meta_value = {$data['original_pid']}") ){
+            wp_update_post(array(
+                'ID' => intval($post_id),
+                'post_title' => $data['name'],
+                'post_type' => 'product',
+                'post_status' => $data['status'],
+                'post_content' => $data['description'],
+                'post_excerpt' => $data['short_description'],
+            ));
+
+            $args = array(
+                'post_type'   => 'attachment',
+                'numberposts' => -1,
+                'post_status' => 'any',
+                'post_parent' => $post_id
+            );
+            
+            $attachments = get_posts( $args );
+            
+            if ( $attachments ) {
+                foreach ( $attachments as $attachment ) {
+                    wp_delete_attachment( $attachment->ID);
+                }
+            }
+        }else{
+            $post_id = wp_insert_post(array(
+                'post_title' => $data['name'],
+                'post_type' => 'product',
+                'post_status' => $data['status'],
+                'post_content' => $data['description'],
+                'post_excerpt' => $data['short_description'],
+            ));   
+        }
+
+        if(!empty($data['the_tags'])){
+            wp_set_object_terms($post_id, $data['the_tags'], 'product_tag');
+        }
+
+        mobilitybuy_category_update($post_id,$data['categories']);
+        wp_set_object_terms( $post_id, $data['type'], 'product_type' );
+        update_post_meta( $post_id, '_visibility', 'visible' );
+        update_post_meta( $post_id, '_stock_status', 'instock');
+        update_post_meta( $post_id, '_stock', $data['_stock']);
+        update_post_meta( $post_id, 'total_sales', $data['total_sales'] );
+        update_post_meta( $post_id, '_downloadable', $data['downloadable'] );
+        update_post_meta( $post_id, '_virtual', $data['virtual'] );
+        update_post_meta( $post_id, '_price', $data['price'] );
+        update_post_meta( $post_id, '_regular_price', $data['regular_price'] );
+        update_post_meta( $post_id, '_sale_price', $data['sale_price'] );
+        update_post_meta( $post_id, '_purchase_note', $data['purchase_note'] );
+        update_post_meta( $post_id, '_purchasable', $data['purchasable'] );
+        update_post_meta( $post_id, '_featured', $data['featured'] );
+        update_post_meta( $post_id, '_download_limit', $data['download_limit'] );
+        update_post_meta( $post_id, '_download_expiry', $data['download_expiry'] );
+        update_post_meta( $post_id, '_weight', !empty($data['_weight'] )?$data['_weight']:'');
+        update_post_meta( $post_id, '_length', !empty($data['_length'] )?$data['_length']:'');
+        update_post_meta( $post_id, '_width', !empty($data['_width'] )?$data['_width']:'');
+        update_post_meta( $post_id, '_height', !empty($data['_height'] )?$data['_height']:'');
+        update_post_meta( $post_id, '_sku', $data['_sku'] );
+        update_post_meta( $post_id, '_product_attributes', $data['attributes'] );
+        update_post_meta( $post_id, '_sale_price_dates_from', $data['date_on_sale_from'] );
+        update_post_meta( $post_id, '_sale_price_dates_to', $data['date_on_sale_to'] );
+        update_post_meta( $post_id, '_sold_individually', '' );
+        update_post_meta( $post_id, '_manage_stock', $data['manage_stock'] );
+        update_post_meta( $post_id, '_product_image_gallery', $data['gallery_img']);
+        update_post_meta( $post_id, '_downloadable_files', $data['downloadable_files']);
+        update_post_meta( $post_id, '_product_attributes', $data['product_attributes']);
+        update_post_meta( $post_id, '_download_limit', $data['download_limit']);
+        update_post_meta( $post_id, 'original_product_id', $data['original_pid']);
+
+        // set product is simple/variable/grouped
+        if(!empty($data['attached'])){
+            $res = attach_product_thumbnail($post_id,$data['attached'],0);
+        }
+        
+        if(!empty($data['images'])){
+            foreach($data['images'] as $image ){
+                attach_product_thumbnail($post_id,$image,1);
             }
         }
+        return 'success';
+
     }else{
-        $post_id = wp_insert_post(array(
-            'post_title' => $data['name'],
-            'post_type' => 'product',
-            'post_status' => $data['status'],
-            'post_content' => $data['description'],
-            'post_excerpt' => $data['short_description'],
-        ));   
+        return true;
     }
-
-    if(!empty($data['the_tags'])){
-        wp_set_object_terms($post_id, $data['the_tags'], 'product_tag');
-    }
-
-    mobilitybuy_category_update($post_id,$data['categories']);
-    wp_set_object_terms( $post_id, $data['type'], 'product_type' );
-    update_post_meta( $post_id, '_visibility', 'visible' );
-    update_post_meta( $post_id, '_stock_status', 'instock');
-    update_post_meta( $post_id, '_stock', $data['_stock']);
-    update_post_meta( $post_id, 'total_sales', $data['total_sales'] );
-    update_post_meta( $post_id, '_downloadable', $data['downloadable'] );
-    update_post_meta( $post_id, '_virtual', $data['virtual'] );
-    update_post_meta( $post_id, '_price', $data['price'] );
-    update_post_meta( $post_id, '_regular_price', $data['regular_price'] );
-    update_post_meta( $post_id, '_sale_price', $data['sale_price'] );
-    update_post_meta( $post_id, '_purchase_note', $data['purchase_note'] );
-    update_post_meta( $post_id, '_purchasable', $data['purchasable'] );
-    update_post_meta( $post_id, '_featured', $data['featured'] );
-    update_post_meta( $post_id, '_download_limit', $data['download_limit'] );
-    update_post_meta( $post_id, '_download_expiry', $data['download_expiry'] );
-    update_post_meta( $post_id, '_weight', !empty($data['_weight'] )?$data['_weight']:'');
-    update_post_meta( $post_id, '_length', !empty($data['_length'] )?$data['_length']:'');
-    update_post_meta( $post_id, '_width', !empty($data['_width'] )?$data['_width']:'');
-    update_post_meta( $post_id, '_height', !empty($data['_height'] )?$data['_height']:'');
-    update_post_meta( $post_id, '_sku', $data['_sku'] );
-    update_post_meta( $post_id, '_product_attributes', $data['attributes'] );
-    update_post_meta( $post_id, '_sale_price_dates_from', $data['date_on_sale_from'] );
-    update_post_meta( $post_id, '_sale_price_dates_to', $data['date_on_sale_to'] );
-    update_post_meta( $post_id, '_sold_individually', '' );
-    update_post_meta( $post_id, '_manage_stock', $data['manage_stock'] );
-    update_post_meta( $post_id, '_product_image_gallery', $data['gallery_img']);
-    update_post_meta( $post_id, '_downloadable_files', $data['downloadable_files']);
-    update_post_meta( $post_id, '_product_attributes', $data['product_attributes']);
-    update_post_meta( $post_id, '_download_limit', $data['download_limit']);
-    update_post_meta( $post_id, 'original_product_id', $data['original_pid']);
-
-    // set product is simple/variable/grouped
-    $res = attach_product_thumbnail($post_id,$data['attached'],0);
-    
-    if(!empty($data['images'])){
-        foreach($data['images'] as $image ){
-            attach_product_thumbnail($post_id,$image,1);
-        }
-    }
-    return 'Success';
 }
 
 // SEND POST REQUEST
