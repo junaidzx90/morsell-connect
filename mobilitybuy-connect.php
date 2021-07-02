@@ -17,7 +17,7 @@ add_action('woocommerce_product_options_pricing', 'mobilitybuy_add_admin_scripts
 
 require __DIR__ . '/vendor/autoload.php';
 use Automattic\WooCommerce\Client;
-$url = get_option('mobilitybuy_parent_site_url','');
+$url = !empty(get_option('mobilitybuy_parent_site_url'))?get_option('mobilitybuy_parent_site_url'):get_site_url();
 if(substr($url , -1)=='/'){
     $url = rtrim($url,"/");
 }
